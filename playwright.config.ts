@@ -60,9 +60,9 @@ export default defineConfig({
   ],
   use: {
     baseURL: 'https://en.wikipedia.org',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'on',
     actionTimeout: 10_000,
     navigationTimeout: 30_000,
   },
