@@ -13,7 +13,7 @@
     "install:browsers": "playwright install --with-deps"
   },
   "dependencies": {
-    "@brittlehq/playwright-reporter": "^0.0.3"
+    "@brittlehq/playwright-reporter": "^0.0.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"
