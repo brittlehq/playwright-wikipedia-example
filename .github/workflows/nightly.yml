@@ -1,0 +1,86 @@
+name: Wikipedia suite (nightly)
+
+# Runs the full suite against en.wikipedia.org every night across three
+# browsers and reports results to the public Brittle dashboard at
+# app.brittle.dev — the live data you see there comes from this workflow.
+#
+# Required repository secrets:
+#   BRITTLE_HUB_URL   https://app.brittle.dev
+#   BRITTLE_TOKEN     service token from Project → Settings → Tokens
+#
+# Trigger manually: Actions → "Wikipedia suite (nightly)" → Run workflow.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: 'Browser (leave blank to run all three)'
+        required: false
+        default: 'all'
+        type: choice
+        options: [all, chromium, firefox, webkit]
+      run_tags:
+        description: 'Comma-separated run tags'
+        required: false
+        default: 'nightly,wikipedia'
+        type: string
+
+concurrency:
+  group: wikipedia-nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: >-
+      github.event_name != 'workflow_dispatch'
+      || github.event.inputs.browser == 'all'
+      || github.event.inputs.browser == matrix.browser
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+
+    env:
+      BRITTLE_HUB_URL: ${{ secrets.BRITTLE_HUB_URL }}
+      BRITTLE_TOKEN: ${{ secrets.BRITTLE_TOKEN }}
+      BRITTLE_BRANCH: ${{ github.ref_name }}
+      # All three browser legs share the same run name so the reporter
+      # collapses them into a single Run on the Brittle dashboard.
+      BRITTLE_RUN_NAME: 'Wikipedia nightly · ${{ github.run_id }}'
+      BRITTLE_RUN_TAGS: ${{ github.event.inputs.run_tags || 'nightly,wikipedia' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
+
+      - name: Install Playwright browser (${{ matrix.browser }})
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run tests
+        run: npx playwright test --project=${{ matrix.browser }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.browser }}-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
