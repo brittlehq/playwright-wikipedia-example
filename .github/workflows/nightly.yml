@@ -15,12 +15,6 @@ on:
     - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
-      browser:
-        description: 'Browser (leave blank to run all three)'
-        required: false
-        default: 'all'
-        type: choice
-        options: [all, chromium, firefox, webkit]
       run_tags:
         description: 'Comma-separated run tags'
         required: false
@@ -36,10 +30,6 @@ jobs:
     name: ${{ matrix.browser }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    if: >-
-      github.event_name != 'workflow_dispatch'
-      || github.event.inputs.browser == 'all'
-      || github.event.inputs.browser == matrix.browser
     strategy:
       fail-fast: false
       matrix:
