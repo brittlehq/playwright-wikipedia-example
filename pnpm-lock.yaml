@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@brittlehq/playwright-reporter':
-        specifier: ^0.0.4
-        version: 0.0.4(@playwright/test@1.60.0)
+        specifier: ^0.0.5
+        version: 0.0.5(@playwright/test@1.60.0)
     devDependencies:
       '@playwright/test':
         specifier: ^1.49.0
@@ -18,8 +18,8 @@ importers:
 
 packages:
 
-  '@brittlehq/playwright-reporter@0.0.4':
-    resolution: {integrity: sha512-EyX3lqIpJjrCQnEmbiV7VYFj11wqtO94VWa+8DllVU9Orh0yZ6FHsnfIQnR959uCwRG56Ara4UJsWMGy//IfdQ==}
+  '@brittlehq/playwright-reporter@0.0.5':
+    resolution: {integrity: sha512-K4kl8tK6rt48AHrQnISUljAiRnyG/zl/tYnTlt8oOGmyiftIKUZPEVSpEUUI1YWxc6Fkll7f69eTG1Tj5HIO4Q==}
     peerDependencies:
       '@playwright/test': '>=1.40.0'
 
@@ -51,7 +51,7 @@ packages:
 
 snapshots:
 
-  '@brittlehq/playwright-reporter@0.0.4(@playwright/test@1.60.0)':
+  '@brittlehq/playwright-reporter@0.0.5(@playwright/test@1.60.0)':
     dependencies:
       '@brittlehq/shared': 0.0.1
       '@playwright/test': 1.60.0
