@@ -16,6 +16,11 @@ import { annotate } from '../_shared/annotate.js';
  */
 
 test.describe('visual regression — stable chrome', { tag: ['@visual', '@regression-suite'] }, () => {
+  // Visual tests capture element screenshots themselves — video adds no diagnostic
+  // value and causes multi-minute finalization delays when toHaveScreenshot fails
+  // in CI (platform-specific font rendering → test retries → long video files).
+  test.use({ video: 'off' });
+
   test.beforeEach(() => {
     annotate('owner', 'design-systems');
     annotate('severity', 'medium');
