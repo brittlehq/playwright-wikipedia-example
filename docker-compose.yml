@@ -81,7 +81,7 @@ services:
       retries: 5
 
   brittle:
-    image: ghcr.io/brittlehq/brittle:0.1.0
+    image: ghcr.io/brittlehq/brittle:latest
     container_name: brittle-hub
     depends_on:
       postgres:
@@ -89,8 +89,13 @@ services:
       init-artifacts:
         condition: service_completed_successfully
     # No `ports:` — Hub stays on the compose network. Caddy fronts it.
+    # Hub config lives inline in `configs:` at the bottom of this file, so
+    # the whole stack is one self-contained doc — no sidecar files to copy
+    # around. Same pattern the caddy service uses for its Caddyfile.
+    configs:
+      - source: hub-config
+        target: /etc/brittle/hub.config.yaml
     volumes:
-      - ./hub.config.yaml:/etc/brittle/hub.config.yaml:ro
       - brittle-artifacts:/var/lib/brittle/artifacts
     environment:
       # Use our local config — the image's baked-in production config is
@@ -151,3 +156,58 @@ configs:
       :80 {
         reverse_proxy brittle:3100
       }
+
+  # Inline Brittle Hub config — mounted into the brittle container at
+  # /etc/brittle/hub.config.yaml. `$${VAR}` is the compose-escape for a
+  # literal `$`; the Hub's own interpolation pass resolves the actual
+  # values from `environment:` entries above at startup.
+  hub-config:
+    content: |
+      server:
+        host: 0.0.0.0
+        port: $${HUB_PORT:3100}
+        logLevel: $${LOG_LEVEL:info}
+
+      database:
+        url: $${DATABASE_URL}
+
+      auth:
+        jwtSecret: $${JWT_SECRET}
+
+      artifacts:
+        # `local:<absolute-path>` writes artifacts to the container's
+        # filesystem. The matching docker volume `brittle-artifacts` is
+        # mounted at this path — survives `docker compose down`, nuked
+        # by `docker compose down -v`. Switch to `s3://<bucket>` (and
+        # add an `s3:` block) when you need shared storage across
+        # replicas. See README.md "Production with S3".
+        store: local:/var/lib/brittle/artifacts
+
+      # Required-by-schema blocks even when their fields all default.
+      # Empty objects = defaults across the board.
+      redis: {}
+      session: {}
+      nodes:
+        heartbeat: {}
+      internal: {}
+      tunnel: {}
+
+      # Optional — open a read-only demo account on the login screen.
+      # Useful for screenshots / public demos.
+      # demo:
+      #   email: demouser@brittle.local
+      #   password: demouser
+
+      # AI failure analysis. Two-level config:
+      #
+      # This block is the HUB-LEVEL gate — `enabled: true` + `provider:`
+      # set is what lets the hub enqueue AI jobs at all. Without both,
+      # no jobs fire for any org, even orgs that configured their own
+      # provider.
+      #
+      # The PROVIDER (per-org) — actual API key + model — is configured
+      # per organisation via the dashboard at Org → Settings → AI. That
+      # config overrides this hub-level block at job-execution time.
+      ai:
+        enabled: true
+        provider: gemini
