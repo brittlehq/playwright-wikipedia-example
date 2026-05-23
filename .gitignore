@@ -1,5 +1,27 @@
+# Dependencies
 node_modules/
-playwright-report/
+
+# Build artifacts
+dist/
+build/
+.turbo/
+
+# Test outputs
 test-results/
+playwright-report/
+playwright/.last-run.json
+coverage/
+
+# Local env (per-example .env, gitignored at every level)
 .env
-*.local.env
+.env.local
+
+# Lockfile policy — pnpm-lock.yaml is canonical. Drop stray npm/yarn locks
+# so the choice of package manager doesn't matter; pnpm-lock.yaml stays
+# authoritative across the repo.
+package-lock.json
+yarn.lock
+
+# OS
+.DS_Store
+Thumbs.db

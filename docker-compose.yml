@@ -1,0 +1,153 @@
+# One-command local stack for trying Brittle's reporters end-to-end.
+#
+# Stack:
+#   - caddy     Reverse proxy — single port (3100) fronts everything
+#   - brittle   Hub server + bundled Dashboard
+#   - postgres  Backing Postgres 16
+#
+# Artifacts (videos, traces, screenshots, command logs) land on a Docker
+# volume that's mounted into the hub at /var/lib/brittle/artifacts. The
+# hub streams them through itself for upload + download — no separate
+# object store. Fine for a single-node deploy; if you need shared storage
+# across replicas (or multi-region), see the "Production with S3" section
+# in README.md.
+#
+# Start the stack:
+#   docker compose up -d
+#
+# Wait ~15s for the Hub to apply Prisma migrations on first start. Then
+# visit http://localhost:3100 — the first-run wizard creates your admin
+# account, organisation, and first project. Mint an API token in
+# Project → Settings → Tokens, drop it into the reporter you want to try.
+#
+# Deploying this to a VPS:
+#   - Edit the inline `caddyfile:` config below — change `:80` to your
+#     hostname (e.g. `brittle.example.com`). Caddy auto-provisions a
+#     Let's Encrypt cert — no extra config.
+#   - Open ports 80 + 443. Hub and Postgres stay on the compose network.
+#
+# Tear down (preserves data volumes):  docker compose down
+# Nuke everything (drops DB + artifacts):  docker compose down -v
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: brittle-caddy
+    depends_on:
+      brittle:
+        condition: service_healthy
+    ports:
+      - '3100:80'           # public entrypoint — change to 80:80 / 443:443 on a VPS
+    # Caddyfile lives inline in `configs:` at the bottom of this file, so the
+    # whole stack is one self-contained doc — no sidecar files to copy around.
+    # Requires Docker Compose v2.23+ (inline `configs.content:` support).
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - brittle-caddy-data:/data    # cert store + persistent state
+      - brittle-caddy-config:/config
+
+  # One-shot init: chown the artifacts volume to UID 1000 (the `node` user
+  # inside the hub image) before the hub container starts. Docker creates
+  # named-volume mount points with root ownership by default; the hub
+  # process runs as `node` (USER node in the upstream Dockerfile) and
+  # would crash on first artifact write with `EACCES: permission denied,
+  # mkdir '/var/lib/brittle/artifacts/sessions'` without this step.
+  #
+  # Idempotent — re-running this is a fast no-op once the volume is owned
+  # by 1000. Exits cleanly so brittle's `depends_on` can wait on it.
+  init-artifacts:
+    image: alpine:3
+    container_name: brittle-init-artifacts
+    volumes:
+      - brittle-artifacts:/data
+    command: ['sh', '-c', 'chown -R 1000:1000 /data && echo "artifacts volume ready"']
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: brittle-postgres
+    environment:
+      POSTGRES_USER: brittle
+      POSTGRES_PASSWORD: brittle
+      POSTGRES_DB: brittle
+    volumes:
+      - brittle-postgres-data:/var/lib/postgresql/data
+    # No `ports:` — Postgres stays on the compose network only.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U brittle -d brittle']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  brittle:
+    image: ghcr.io/brittlehq/brittle:0.1.0
+    container_name: brittle-hub
+    depends_on:
+      postgres:
+        condition: service_healthy
+      init-artifacts:
+        condition: service_completed_successfully
+    # No `ports:` — Hub stays on the compose network. Caddy fronts it.
+    volumes:
+      - ./hub.config.yaml:/etc/brittle/hub.config.yaml:ro
+      - brittle-artifacts:/var/lib/brittle/artifacts
+    environment:
+      # Use our local config — the image's baked-in production config is
+      # Cloudflare R2-shaped and references env vars we don't set.
+      BRITTLE_CONFIG_PATH: /etc/brittle/hub.config.yaml
+
+      # --- DB ---
+      DATABASE_URL: postgresql://brittle:brittle@postgres:5432/brittle?schema=public
+
+      # --- Server ---
+      HUB_PORT: '3100'
+      NODE_ENV: production
+      LOG_LEVEL: info
+
+      # --- Auth ---
+      # JWT_SECRET must be ≥32 chars (enforced by the config schema). The
+      # value below is fine for local testing; rotate before exposing the
+      # hub to anyone else. The initial admin account is created via the
+      # dashboard's first-run wizard — no ADMIN_EMAIL / ADMIN_PASSWORD env
+      # vars to set.
+      JWT_SECRET: dev-secret-not-for-production-change-me-this-is-only-for-local-demos
+
+      # --- AI features (failure pattern detection) ---
+      # Master key used for AES-256-GCM at-rest encryption of each org's
+      # LLM API key. Required even if you don't plan to enable AI yet —
+      # the hub validates its presence at startup. Min 16 chars; use
+      # `openssl rand -hex 32` to mint a real one for any deployment that
+      # leaves your machine.
+      BRITTLE_AI_SECRET_KEY: 9d24c86e1c7ea067d3489a806a57aee503ab21f9cf1df9819867c2e657784418
+
+      # --- Migrations ---
+      # Hub auto-runs `prisma migrate deploy` on start. Set to `false`
+      # only if you handle migrations out-of-band (e.g. K8s init container).
+      BRITTLE_RUN_MIGRATIONS: 'true'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3100/health']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+volumes:
+  brittle-postgres-data:
+  brittle-artifacts:
+  brittle-caddy-data:
+  brittle-caddy-config:
+
+# Inline Caddy config — mounted into the caddy container at
+# /etc/caddy/Caddyfile via the `configs:` block in the caddy service above.
+#
+# To switch from local HTTP-only to a public hostname with auto-TLS, swap
+# the `:80` line below for your domain (e.g. `brittle.example.com`). Caddy
+# auto-fetches a Let's Encrypt cert on first start as long as ports 80 +
+# 443 are reachable from the public internet — no other config changes.
+configs:
+  caddyfile:
+    content: |
+      :80 {
+        reverse_proxy brittle:3100
+      }

@@ -1,159 +1,189 @@
-# Playwright Wikipedia Example
+# Brittle reporter examples
 
-A production-ready Playwright test suite that runs daily against [en.wikipedia.org](https://en.wikipedia.org) across three browsers. It demonstrates a complete integration with **[@brittlehq/playwright-reporter](https://www.npmjs.com/package/@brittlehq/playwright-reporter)** — every run lands on the live dashboard at [app.brittle.dev](https://app.brittle.dev).
+Runnable example projects for every [Brittle](https://brittle.dev) reporter. Each folder is a self-contained, fork-and-go starter — pick the one that matches your test runner and `cd` into it.
 
-The suite is also designed to be forked as a starting point for any Playwright project that wants Brittle reporting.
+> **Brittle** is open-source test observability for Playwright, WebdriverIO, Jest, and Vitest. Failure triage with AI-grouped errors, strong-flake detection, per-env rollups, video + trace on every session.
 
-## What's in the suite
+## Layout
 
 ```
-tests/
-  search/    — search box, results page, autocomplete (@smoke @p0)
-  article/   — title, infobox, references, a11y skip-link, TOC anchors (@smoke @a11y)
-  history/   — revision history, old-version view, user contributions (@regression-suite)
-  i18n/      — language switcher, cross-edition navigation (@smoke)
-  profile/   — User: namespace pages (@smoke)
-  talk/      — Talk: namespace pages (@regression-suite)
-  visual/    — pixel-diff snapshots of stable chrome; mobile viewport checks (@visual)
+.
+├── docker-compose.yml      ← Brittle Hub + Postgres + MinIO in one command
+├── playwright/             ← Real Playwright suite against Wikipedia (3 browsers, visual regression, CI workflow)
+├── wdio/                   ← WebdriverIO + Mocha, headless Chrome
+├── jest/                   ← Jest unit-test example
+└── vitest/                 ← Vitest unit-test example
 ```
 
-### Tags
+Every subdirectory has its own `README.md`, `package.json`, config file, `.env.example`, and tests. Treat each as a standalone project.
 
-| Tag | Meaning |
-|---|---|
-| `@smoke` | Must pass every run — entry-point health check |
-| `@p0` | Highest priority (search box) |
-| `@regression-suite` | Broader sweep; paired with the nightly schedule |
-| `@flaky-watch` | Known edge-of-flake; deliberately kept to give the dashboard's Flaky Watch panel real signal |
-| `@a11y` | Accessibility-adjacent checks |
-| `@visual` | Pixel-diff snapshot tests |
-| `@mobile` | Mobile viewport / device emulation |
+---
 
-Filter by tag with `--grep`:
+## Step 1 — start the Brittle stack locally
+
+The repo root ships a `docker-compose.yml` that brings up everything you need:
+
+| Service | Port | Purpose |
+|---|---|---|
+| `caddy` | http://localhost:3100 | Reverse proxy — single entry point |
+| `brittle` | (internal) | Hub API + Dashboard UI (one container) |
+| `postgres` | (internal) | Backing database |
+
+Artifacts (videos, traces, screenshots) land on a docker volume — the hub streams them through itself for upload + download. Survives `docker compose down`, dies with `docker compose down -v`.
 
 ```bash
-npx playwright test --grep @smoke
-npx playwright test --grep @visual
+docker compose up -d
 ```
 
-## Getting started
+Wait ~15 seconds for the Hub to apply migrations on first start. Then open http://localhost:3100 in a browser.
 
-### Prerequisites
+**First-run wizard.** The first time you open the dashboard, a setup screen prompts you to create:
 
-- Node.js 18+
-- A Brittle hub (sign up at [app.brittle.dev](https://app.brittle.dev) or [self-host](https://github.com/brittlehq/brittle))
+1. The **initial admin account** (email + password — your choice; pick anything for local testing)
+2. Your first **Organization** (e.g. `My Org`)
+3. Your first **Project** (e.g. `My App`)
 
-### Install
+This only runs once. Subsequent visits go straight to the login screen.
+
+To tear down (data volumes preserved):
 
 ```bash
-git clone https://github.com/brittlehq/playwright-wikipedia-example.git
-cd playwright-wikipedia-example
-npm install
-npx playwright install --with-deps   # one-time browser download
+docker compose down
 ```
 
-### Configure
+To nuke everything (drops DB + artifacts):
 
 ```bash
-cp .env.example .env
+docker compose down -v
 ```
 
-Edit `.env` and set:
+> **Want the public-hosted hub instead?** Skip this section and set `BRITTLE_URL=https://app.brittle.dev` in the example's `.env`. Same flow from Step 2 onward.
 
-| Variable | Description |
-|---|---|
-| `BRITTLE_HUB_URL` | Your hub URL — `https://app.brittle.dev` or `http://localhost:3100` |
-| `BRITTLE_TOKEN` | Service token from **Project → Settings → Tokens → New token** |
+---
 
-### Run
+## Step 2 — create an API token
 
-```bash
-# Load .env and run all three browsers
-set -a; source .env; set +a
-npm test
+Reporters authenticate to the Hub with a token scoped to a single Brittle project. You only have to do this once per project.
 
-# Single browser
-npm run test:chromium
-npm run test:firefox
-npm run test:webkit
+1. Open http://localhost:3100 and finish the first-run wizard if you haven't (admin account → org → project).
+2. From the project home, navigate to **Settings → Tokens** (or **Project Settings → Tokens** in some UI variants).
+3. Click **New token**:
+   - **Name**: something memorable like `local-dev` or `ci`
+   - **Type**:
+     - **Service** — long-lived, survives user offboarding. Use for CI.
+     - **Personal** — bound to your user account, auto-revoked when you leave the project. Use for laptops.
 
-# Filtered by tag
-npx playwright test --grep @smoke
+     For local example runs, either works. Pick `personal`.
+   - Click **Create**.
+4. **Copy the token immediately** — it's shown once. Format looks like `brt_svc_xxxxxxxxxxxxxxxx` (service) or `brt_pat_xxxxxxxxxxxxxxxx` (personal).
+
+You'll paste this token into the example's `.env` file in the next step.
+
+> **A leaked token's blast radius is one project.** If a token shows up in a public log or commit, revoke it from the same Tokens page and mint a fresh one. The Hub stores tokens hashed (argon2), so even an admin can't recover the original — revoke and re-mint is the only path.
+
+---
+
+## Step 3 — pick an example and run it
+
+Each example folder has identical bootstrap steps:
+
+1. `cd <reporter>/`
+2. `cp .env.example .env`
+3. Edit `.env` — set `BRITTLE_URL=http://localhost:3100` (or `https://app.brittle.dev`) and paste the token into `BRITTLE_TOKEN`.
+4. `pnpm install` (or `npm install` — both work)
+5. `pnpm test`
+6. Watch the run land on the dashboard at http://localhost:3100
+
+The per-folder README has runner-specific notes (browser installs for Playwright/WDIO, jest-specific config notes, etc.).
+
+| Reporter | Folder | What it demonstrates |
+|---|---|---|
+| Playwright | [`playwright/`](./playwright/) | Real cross-browser suite against Wikipedia. 3 browsers, visual regression, CI workflow, ~20 tests. The forking template most teams want. |
+| WebdriverIO | [`wdio/`](./wdio/) | WDIO 9 + Mocha + Chrome headless. BiDi command log, optional failure screenshots. |
+| Jest | [`jest/`](./jest/) | Vanilla Jest unit-test suite. Demonstrates the runner-agnostic flow (no browser involvement). |
+| Vitest | [`vitest/`](./vitest/) | Vitest unit-test suite. Same shape as the Jest example but on Vitest's faster runner. |
+
+---
+
+## What lands on the dashboard
+
+Once a run finishes, the dashboard shows:
+
+- **Run** with branch, commit, duration, pass/fail counts
+- **Session** per test — with video, screenshot, command log (for browser runners), and full error context
+- **AI-grouped failures** — same root cause across browsers/files becomes one triage row (enable in **Org → Settings → AI** with your own OpenAI / Anthropic / Gemini API key)
+- **Test history** — per-test pass/fail heatmap going back 30 days
+- **Flaky detection** — tests that produced both pass and fail on the same commit, automatically flagged
+
+### Enabling AI failure analysis
+
+The dashboard ships with AI disabled by default — you bring your own provider key. To turn it on:
+
+1. **Org → Settings → AI** → choose provider (OpenAI / Anthropic / Gemini / Ollama)
+2. Paste your provider API key + pick a model (e.g. `gpt-4o-mini`, `claude-3-5-sonnet`, `gemini-2.5-flash`)
+3. Save. Future runs with failures get auto-analysed.
+
+Your provider API key is stored AES-256-GCM encrypted in the Brittle DB; the master key for that envelope is `BRITTLE_AI_SECRET_KEY` in `docker-compose.yml`. For local demos the bundled random key is fine — generate a fresh one with `openssl rand -hex 32` before exposing the hub to anyone else.
+
+---
+
+## Forking this for your own project
+
+The cleanest path:
+
+1. **Just copy the folder you need** — e.g., `cp -r playwright/ ~/your-suite/`. Each folder is self-contained.
+2. Update the `name` in `package.json`, drop tests in, and you're set.
+3. The `.env.example` shows every option; `BRITTLE_URL` + `BRITTLE_TOKEN` are the only required ones.
+
+For CI integration patterns, the [`playwright/`](./playwright/) folder has the most complete reference — including a GitHub Actions workflow at `.github/workflows/nightly.yml`.
+
+---
+
+## Production with S3 (R2, AWS S3, MinIO, SeaweedFS)
+
+The bundled docker-compose uses **filesystem storage** for artifacts — the hub writes videos/traces/screenshots to a docker volume mounted at `/var/lib/brittle/artifacts`. That's the right default for one-machine deploys: zero extra services, survives restarts, easy to back up with `docker run --rm -v reporter-examples_brittle-artifacts:/data -v $PWD:/backup alpine tar czf /backup/artifacts.tgz /data`.
+
+You'll want to switch to an S3-compatible object store when:
+
+- You're running **multiple Brittle Hub replicas** behind a load balancer (filesystem doesn't share across pods).
+- You want a **CDN in front of artifact downloads** for global teams (presigned URLs let the browser fetch directly from the bucket).
+- The artifact volume is growing faster than you want to back up locally.
+
+To switch, edit `hub.config.yaml`:
+
+```yaml
+artifacts:
+  store: s3://your-bucket-name
+  s3:
+    region: us-east-1
+    endpoint: https://s3.us-east-1.amazonaws.com  # or R2 / MinIO endpoint
+    accessKeyId: ${S3_ACCESS_KEY_ID}
+    secretAccessKey: ${S3_SECRET_ACCESS_KEY}
+    forcePathStyle: false                         # true for MinIO/SeaweedFS, false for AWS S3/R2
 ```
 
-Open the local Playwright report:
+…and add the matching env vars in `docker-compose.yml`. Cloud-hosted buckets (AWS S3, Cloudflare R2) work transparently with the hub's presigned-URL flow because they're already publicly addressable. For self-hosted S3 (MinIO / SeaweedFS) fronted by the same proxy as the hub, there's a sigv4-through-reverse-proxy gotcha that needs additional configuration — see the upstream object store's documentation or run the object store on its own subdomain.
 
-```bash
-npm run report
-```
+---
 
-## How the Brittle integration works
+## Troubleshooting
 
-The only Brittle-specific line is the reporter entry in `playwright.config.ts`:
+**`docker compose up` complains about port 3100 already in use** — another service has port 3100 (often a default-installed Java app, or a previous Brittle deploy). Edit `ports:` in `docker-compose.yml` to map a different host port (e.g. `'3200:80'`), then update `BRITTLE_URL` in each reporter's `.env` to match.
 
-```ts
-reporters: [
-  ['@brittlehq/playwright-reporter', {
-    url: process.env.BRITTLE_HUB_URL,
-    token: process.env.BRITTLE_TOKEN,
-    runName,
-  }],
-]
-```
+**Dashboard shows "no runs yet" after a test finishes** — make sure `BRITTLE_URL` doesn't have a trailing slash, the token is the freshest one (not a stale copy), and the project slug in the dashboard matches what the token was minted under. Each token is scoped to exactly one project.
 
-This uses the **reported-origin** flow — Playwright runs browsers locally and the reporter posts results to the hub after each test. No Brittle grid node required; it works with any existing Playwright suite.
+**Reporter logs `401 Unauthorized`** — token is wrong, expired, or scoped to a different project. Revoke and mint a new one from Project → Settings → Tokens.
 
-**Run collapsing:** all parallel browser workers share the same `runName`, so the reporter converges them into a single Run on the dashboard instead of creating three separate ones. In CI this is set to the workflow run ID; locally it defaults to today's date.
+**Artifact uploads fail or downloads 404** — check `docker compose logs brittle | tail -50` for the actual error. The filesystem path is inside the container; if you `docker compose down -v` you wipe the artifacts volume. Run `docker volume inspect reporter-examples_brittle-artifacts` to see where it lives on the host.
 
-## CI
+**Want to debug at HTTP level** — set `LOG_LEVEL=debug` in `docker-compose.yml` and `docker compose restart brittle`. Reporter logs go to `stderr`, set `LOG_LEVEL=debug` in the reporter's `.env` for the same on that side.
 
-The included workflow at `.github/workflows/nightly.yml` runs the full suite daily at 03:00 UTC across all three browsers.
-
-**Required repository secrets:**
-
-| Secret | Value |
-|---|---|
-| `BRITTLE_HUB_URL` | `https://app.brittle.dev` |
-| `BRITTLE_TOKEN` | Service token from your Brittle project |
-
-The workflow can also be triggered manually from the Actions tab with optional browser and tag filters.
-
-## Visual regression baselines
-
-Snapshot baselines live in `tests/visual/snapshots.spec.ts-snapshots/`. They target stable, low-churn Wikipedia chrome (header logo, article shell, footer) with masks over any region that rotates (timestamps, banners).
-
-Update baselines after intentional UI changes:
-
-```bash
-npx playwright test --update-snapshots tests/visual/snapshots.spec.ts
-```
-
-## Forking for your own suite
-
-1. Add the reporter to your project:
-   ```bash
-   npm install @brittlehq/playwright-reporter
-   ```
-
-2. Register it in `playwright.config.ts`:
-   ```ts
-   import { defineConfig } from '@playwright/test';
-
-   export default defineConfig({
-     reporter: [
-       ['@brittlehq/playwright-reporter', {
-         url: process.env.BRITTLE_HUB_URL,
-         token: process.env.BRITTLE_TOKEN,
-         runName: process.env.BRITTLE_RUN_NAME,
-       }],
-     ],
-   });
-   ```
-
-3. Set `BRITTLE_HUB_URL` and `BRITTLE_TOKEN` in your CI environment.
-
-That's it. The reporter picks up tags, describe blocks, retries, screenshots, videos, and traces automatically — no further wiring needed.
+---
 
 ## License
 
-MIT
+MIT. Copy, fork, ship.
+
+---
+
+[brittle.dev](https://brittle.dev) · [Brittle on GitHub](https://github.com/brittlehq/brittle) · [npm @brittlehq](https://www.npmjs.com/org/brittlehq) · [Discussions](https://github.com/brittlehq/brittle/discussions)

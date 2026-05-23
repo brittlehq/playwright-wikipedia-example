@@ -1,12 +1,13 @@
 name: Wikipedia suite (nightly)
 
-# Runs the full suite against en.wikipedia.org every night across three
-# browsers and reports results to the public Brittle dashboard at
-# app.brittle.dev — the live data you see there comes from this workflow.
+# Runs the full Playwright suite under playwright/ against en.wikipedia.org
+# every night across three browsers and reports results to the public
+# Brittle dashboard at app.brittle.dev — the live data you see there comes
+# from this workflow.
 #
 # Required repository secrets:
-#   BRITTLE_HUB_URL   https://app.brittle.dev
-#   BRITTLE_TOKEN     service token from Project → Settings → Tokens
+#   BRITTLE_URL    https://app.brittle.dev
+#   BRITTLE_TOKEN  service token from Project → Settings → Tokens
 #
 # Trigger manually: Actions → "Wikipedia suite (nightly)" → Run workflow.
 
@@ -25,6 +26,12 @@ concurrency:
   group: wikipedia-nightly-${{ github.ref }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    # Every step runs inside playwright/ — the rest of the repo is other
+    # reporter examples (wdio/jest/vitest) that aren't part of this workflow.
+    working-directory: playwright
+
 jobs:
   test:
     name: ${{ matrix.browser }}
@@ -36,7 +43,7 @@ jobs:
         browser: [chromium, firefox, webkit]
 
     env:
-      BRITTLE_HUB_URL: ${{ secrets.BRITTLE_HUB_URL }}
+      BRITTLE_URL: ${{ secrets.BRITTLE_URL }}
       BRITTLE_TOKEN: ${{ secrets.BRITTLE_TOKEN }}
       BRITTLE_BRANCH: ${{ github.ref_name }}
       # All three browser legs share the same run name so the reporter
@@ -58,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('playwright/package.json') }}
 
       - name: Install Playwright browser (${{ matrix.browser }})
         run: npx playwright install --with-deps ${{ matrix.browser }}
@@ -71,6 +78,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.browser }}-${{ github.run_id }}
-          path: playwright-report/
+          path: playwright/playwright-report/
           retention-days: 14
           if-no-files-found: ignore

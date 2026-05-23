@@ -1,4 +1,11 @@
+import dotenv from 'dotenv';
 import { defineConfig, devices } from '@playwright/test';
+
+// Side-effect-only `import 'dotenv/config'` gets dropped by Playwright's
+// esbuild-based config loader (it tree-shakes unused side-effect imports
+// in some 1.4x versions). Calling dotenv.config() explicitly survives any
+// transpilation pass and runs before the env-var checks below.
+dotenv.config();
 
 /**
  * Playwright config for the Wikipedia example suite.
@@ -10,8 +17,8 @@ import { defineConfig, devices } from '@playwright/test';
  * add Brittle this way with a single reporter entry.
  *
  * Required env vars:
- *   BRITTLE_HUB_URL  — Brittle hub base URL (e.g. https://app.brittle.dev)
- *   BRITTLE_TOKEN    — Service token from Project → Settings → Tokens
+ *   BRITTLE_URL    — Brittle hub base URL (e.g. https://app.brittle.dev)
+ *   BRITTLE_TOKEN  — Service token from Project → Settings → Tokens
  *
  * Optional env vars:
  *   BRITTLE_RUN_NAME  — shared across all parallel browser legs to collapse
@@ -20,11 +27,11 @@ import { defineConfig, devices } from '@playwright/test';
  *   BRITTLE_RUN_TAGS  — comma-separated run-level tags (e.g. "nightly,smoke")
  */
 
-const HUB_URL = process.env.BRITTLE_HUB_URL ?? 'http://localhost:3100';
-const TOKEN = process.env.BRITTLE_TOKEN;
-if (!TOKEN) {
+const BRITTLE_URL = process.env.BRITTLE_URL ?? 'http://localhost:3100';
+const BRITTLE_TOKEN = process.env.BRITTLE_TOKEN;
+if (!BRITTLE_TOKEN) {
   throw new Error(
-    'BRITTLE_TOKEN is required. Mint a service token in your Brittle project under Settings → Tokens and export it.',
+    'BRITTLE_TOKEN is required. Copy .env.example to .env and fill in a token from your Brittle dashboard (Project → Settings → Tokens).',
   );
 }
 
@@ -33,7 +40,7 @@ if (!TOKEN) {
 // to the workflow run ID; locally it defaults to today's date so same-day
 // runs merge naturally.
 const runName =
-  process.env.BRITTLE_RUN_NAME ?? `Wikipedia · ${new Date().toISOString().slice(0, 10)}`;
+  process.env.BRITTLE_RUN_NAME ?? `Wikipedia · ${new Date().toISOString()}`;
 const branch = process.env.BRITTLE_BRANCH ?? 'main';
 const runTags = (process.env.BRITTLE_RUN_TAGS ?? 'nightly,wikipedia').split(',').filter(Boolean);
 
@@ -50,8 +57,8 @@ export default defineConfig({
     [
       '@brittlehq/playwright-reporter',
       {
-        url: HUB_URL,
-        token: TOKEN,
+        url: BRITTLE_URL,
+        token: BRITTLE_TOKEN,
         runName,
         tags: runTags,
         runMetadata: { branch },

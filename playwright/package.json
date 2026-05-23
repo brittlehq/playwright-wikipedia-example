@@ -1,5 +1,5 @@
 {
-  "name": "playwright-wikipedia-example",
+  "name": "brittle-playwright-example",
   "version": "1.0.0",
   "private": true,
   "description": "Production-ready Playwright suite against Wikipedia — demonstrates the @brittlehq/playwright-reporter integration with cross-browser CI, visual regression, and live results on app.brittle.dev.",
@@ -13,9 +13,11 @@
     "install:browsers": "playwright install --with-deps"
   },
   "dependencies": {
-    "@brittlehq/playwright-reporter": "^0.0.5"
+    "@brittlehq/playwright-reporter": "^0.1.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0"
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^20.0.0",
+    "dotenv": "^16.4.0"
   }
 }
