@@ -9,27 +9,46 @@ importers:
   .:
     dependencies:
       '@brittlehq/playwright-reporter':
-        specifier: ^0.0.5
-        version: 0.0.5(@playwright/test@1.60.0)
+        specifier: 0.*.*
+        version: 0.2.1(@playwright/test@1.60.0)
     devDependencies:
       '@playwright/test':
         specifier: ^1.49.0
         version: 1.60.0
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.41
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
 
 packages:
 
-  '@brittlehq/playwright-reporter@0.0.5':
-    resolution: {integrity: sha512-K4kl8tK6rt48AHrQnISUljAiRnyG/zl/tYnTlt8oOGmyiftIKUZPEVSpEUUI1YWxc6Fkll7f69eTG1Tj5HIO4Q==}
+  '@brittlehq/playwright-reporter@0.2.1':
+    resolution: {integrity: sha512-YHeIrLYWREiny32wguVq2pbLh/KJr9eMQkiccZx9vwfNTqT7xczJ1SbAgbG8tfIOV+G7RpsL9MXPbkPLKFUWxA==}
+    engines: {node: '>=20'}
     peerDependencies:
       '@playwright/test': '>=1.40.0'
 
-  '@brittlehq/shared@0.0.1':
-    resolution: {integrity: sha512-AKx2usSjQzlv9mB+Bf2IzCMCPCZ7yLnGxpe9lhgmofG4QKTw+DuckGYiPRBq7LKTNRA3Im9OiSh90Xg+xKZZ2w==}
+  '@brittlehq/reporter-core@0.1.2':
+    resolution: {integrity: sha512-+laPtfl9azi7dXTaNGTNknzyMfNQXjnDtWZ2HLush6/K9jbrzgvUHSoXN+ozjMSffG2rl5SEXN+94XMC6JPvvw==}
+    engines: {node: '>=20'}
+
+  '@brittlehq/shared@0.2.0':
+    resolution: {integrity: sha512-Y5wyVPh0lmhLDZ9yl7Und4uXOTB8UWRDp9nk3Dnh8N8RTUtMnmw1YiOYMZBiDSJqjIwGHs8fPcb6BeaDjV9h6w==}
+    engines: {node: '>=20'}
 
   '@playwright/test@1.60.0':
     resolution: {integrity: sha512-O71yZIbAh/PxDMNGns37GHBIfrVkEVyn+AXyIa5dOTfb4/xNvRWV+Vv/NMbNCtODB/pO7vLlF2OTmMVLhmr7Ag==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@types/node@20.19.41':
+    resolution: {integrity: sha512-ECymXOukMnOoVkC2bb1Vc/w/836DXncOg5m8Xj1RH7xSHZJWNYY6Zh7EH477vcnD5egKNNfy2RpNOmuChhFPgQ==}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
 
   fsevents@2.3.2:
     resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
@@ -46,23 +65,37 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  undici-types@6.21.0:
+    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
 
-  '@brittlehq/playwright-reporter@0.0.5(@playwright/test@1.60.0)':
+  '@brittlehq/playwright-reporter@0.2.1(@playwright/test@1.60.0)':
     dependencies:
-      '@brittlehq/shared': 0.0.1
+      '@brittlehq/reporter-core': 0.1.2
+      '@brittlehq/shared': 0.2.0
       '@playwright/test': 1.60.0
 
-  '@brittlehq/shared@0.0.1':
+  '@brittlehq/reporter-core@0.1.2':
+    dependencies:
+      '@brittlehq/shared': 0.2.0
+
+  '@brittlehq/shared@0.2.0':
     dependencies:
       zod: 3.25.76
 
   '@playwright/test@1.60.0':
     dependencies:
       playwright: 1.60.0
+
+  '@types/node@20.19.41':
+    dependencies:
+      undici-types: 6.21.0
+
+  dotenv@16.6.1: {}
 
   fsevents@2.3.2:
     optional: true
@@ -74,5 +107,7 @@ snapshots:
       playwright-core: 1.60.0
     optionalDependencies:
       fsevents: 2.3.2
+
+  undici-types@6.21.0: {}
 
   zod@3.25.76: {}
