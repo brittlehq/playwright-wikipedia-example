@@ -46,8 +46,8 @@ npx playwright test --grep @visual
 ### Install
 
 ```bash
-git clone https://github.com/brittlehq/playwright-wikipedia-example.git
-cd playwright-wikipedia-example
+git clone https://github.com/brittlehq/reporter-examples.git
+cd reporter-examples/playwright
 npm install
 npx playwright install --with-deps   # one-time browser download
 ```
