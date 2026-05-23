@@ -66,7 +66,7 @@ docker compose down -v
 Reporters authenticate to the Hub with a token scoped to a single Brittle project. You only have to do this once per project.
 
 1. Open http://localhost:3100 and finish the first-run wizard if you haven't (admin account → org → project).
-2. From the project home, navigate to **Settings → Tokens** (or **Project Settings → Tokens** in some UI variants).
+2. In the left sidebar click **Manage → Projects**, click the project you just created, then open the **Tokens** tab.
 3. Click **New token**:
    - **Name**: something memorable like `local-dev` or `ci`
    - **Type**:
@@ -172,7 +172,7 @@ artifacts:
 
 **Dashboard shows "no runs yet" after a test finishes** — make sure `BRITTLE_URL` doesn't have a trailing slash, the token is the freshest one (not a stale copy), and the project slug in the dashboard matches what the token was minted under. Each token is scoped to exactly one project.
 
-**Reporter logs `401 Unauthorized`** — token is wrong, expired, or scoped to a different project. Revoke and mint a new one from Project → Settings → Tokens.
+**Reporter logs `401 Unauthorized`** — token is wrong, expired, or scoped to a different project. Revoke and mint a new one from **Manage → Projects → [your project] → Tokens**.
 
 **Artifact uploads fail or downloads 404** — check `docker compose logs brittle | tail -50` for the actual error. The filesystem path is inside the container; if you `docker compose down -v` you wipe the artifacts volume. Run `docker volume inspect reporter-examples_brittle-artifacts` to see where it lives on the host.
 
