@@ -23,7 +23,10 @@ dotenv.config();
  * Optional env vars:
  *   BRITTLE_RUN_NAME  — shared across all parallel browser legs to collapse
  *                       them into one Run on the dashboard (auto-set in CI)
- *   BRITTLE_BRANCH    — branch label; defaults to "main"
+ *   BRITTLE_BRANCH    — override the auto-detected git branch. Leave unset
+ *                       and the reporter reads `git rev-parse --abbrev-ref HEAD`
+ *                       (and CI env vars in CI). Only set this when the
+ *                       detected value is wrong, e.g. shallow checkouts.
  *   BRITTLE_RUN_TAGS  — comma-separated run-level tags (e.g. "nightly,smoke")
  */
 
@@ -41,7 +44,7 @@ if (!BRITTLE_TOKEN) {
 // runs merge naturally.
 const runName =
   process.env.BRITTLE_RUN_NAME ?? `Wikipedia · ${new Date().toISOString()}`;
-const branch = process.env.BRITTLE_BRANCH ?? 'main';
+const branchOverride = process.env.BRITTLE_BRANCH;
 const runTags = (process.env.BRITTLE_RUN_TAGS ?? 'nightly,wikipedia').split(',').filter(Boolean);
 
 export default defineConfig({
@@ -61,7 +64,10 @@ export default defineConfig({
         token: BRITTLE_TOKEN,
         runName,
         tags: runTags,
-        runMetadata: { branch },
+        // Branch is auto-detected from `git rev-parse --abbrev-ref HEAD`
+        // (and from CI env in CI). Only forward an override when the
+        // operator explicitly set BRITTLE_BRANCH.
+        ...(branchOverride ? { runMetadata: { branch: branchOverride } } : {}),
       },
     ],
   ],
